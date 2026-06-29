@@ -11,9 +11,8 @@ tools, credentials, skills, plugins, or messaging platforms configured there.
 
 ## Files in this repo
 
-- `captain-definition` builds a tiny CapRover image from
-  `nousresearch/hermes-agent:latest`, exposes port `9119`, enables the dashboard,
-  and runs `gateway run`.
+- `captain-definition` builds this repository's `Dockerfile` and exposes port
+  `9119`.
 - `.env.caprover.example` lists the CapRover environment variables to set in the
   app UI.
 - This document captures the operational tradeoffs and hardening checklist.
@@ -30,6 +29,22 @@ Use these settings in CapRover:
 - Do not enable privileged mode
 - Do not mount `/var/run/docker.sock`
 - Do not publish an extra `8642` port unless the API server is intentionally enabled
+
+Because the base Dockerfile keeps the generic image default (`hermes`) for
+normal Docker users, set this CapRover **Service Update Override** so the app
+runs the gateway process:
+
+```yaml
+TaskTemplate:
+  ContainerSpec:
+    Args:
+      - gateway
+      - run
+```
+
+If this override is missing, the container starts the default interactive Hermes
+CLI instead of the long-running gateway and the app may exit or never serve the
+dashboard.
 
 The `/opt/data` volume holds `config.yaml`, `.env`, auth state, sessions,
 memories, skills, plugins, logs, and dashboard uploads. Losing it means losing
@@ -158,6 +173,61 @@ For dashboard OAuth registration without using the dashboard UI:
 docker exec -it <container> hermes dashboard register \
   --redirect-uri https://hermes.example.com/auth/callback
 ```
+
+## Model setup
+
+Set provider credentials as CapRover environment variables. For OpenRouter:
+
+```sh
+OPENROUTER_API_KEY=sk-or-...
+```
+
+The selected main model is stored in `/opt/data/config.yaml`, because the image
+sets `HERMES_HOME=/opt/data`. Do not use `LLM_MODEL`; Hermes no longer reads it.
+
+To set the main model from Discord, message the bot:
+
+```text
+/model anthropic/claude-sonnet-4.6 --provider openrouter --global
+/new
+```
+
+To set the main model over SSH without keeping the dashboard open:
+
+```sh
+docker exec -it <container> hermes config set model.provider openrouter
+docker exec -it <container> hermes config set model.default anthropic/claude-sonnet-4.6
+docker exec -it <container> hermes config set model.base_url ""
+docker exec -it <container> hermes config set model.api_mode chat_completions
+```
+
+Equivalent direct config:
+
+```yaml
+model:
+  provider: openrouter
+  default: anthropic/claude-sonnet-4.6
+  base_url: ''
+  api_mode: chat_completions
+```
+
+Model changes apply to new sessions. Existing gateway conversations keep the
+model they started with unless you switch them in-session with `/model`.
+
+## Discord gateway
+
+For a Discord-only deployment, keep global access closed and set explicit
+Discord allowlists in CapRover:
+
+```sh
+GATEWAY_ALLOW_ALL_USERS=false
+DISCORD_BOT_TOKEN=...
+DISCORD_ALLOWED_USERS=123456789012345678
+```
+
+`DISCORD_ALLOWED_ROLES` can be used alongside `DISCORD_ALLOWED_USERS`; access is
+allowed if either allowlist matches. Without `DISCORD_ALLOWED_USERS` or
+`DISCORD_ALLOWED_ROLES`, Discord users are denied by default.
 
 ## API server posture
 
