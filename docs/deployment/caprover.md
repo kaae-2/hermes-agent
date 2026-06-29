@@ -11,8 +11,10 @@ tools, credentials, skills, plugins, or messaging platforms configured there.
 
 ## Files in this repo
 
-- `captain-definition` builds this repository's `Dockerfile` and exposes port
-  `9119`.
+- `captain-definition` builds `Dockerfile.caprover`, which rebuilds the
+  dashboard bundle from this repository, copies it into
+  `nousresearch/hermes-agent:latest`, exposes port `9119`, and runs
+  `gateway run`.
 - `.env.caprover.example` lists the CapRover environment variables to set in the
   app UI.
 - This document captures the operational tradeoffs and hardening checklist.
@@ -30,21 +32,13 @@ Use these settings in CapRover:
 - Do not mount `/var/run/docker.sock`
 - Do not publish an extra `8642` port unless the API server is intentionally enabled
 
-Because the base Dockerfile keeps the generic image default (`hermes`) for
-normal Docker users, set this CapRover **Service Update Override** so the app
-runs the gateway process:
+No Service Update Override is required for the command: `Dockerfile.caprover`
+sets `CMD ["gateway", "run"]`.
 
-```yaml
-TaskTemplate:
-  ContainerSpec:
-    Args:
-      - gateway
-      - run
-```
-
-If this override is missing, the container starts the default interactive Hermes
-CLI instead of the long-running gateway and the app may exit or never serve the
-dashboard.
+`Dockerfile.caprover` intentionally avoids BuildKit-only Dockerfile syntax so it
+can build on CapRover installations that still use Docker's classic builder. The
+full upstream `Dockerfile` uses BuildKit features such as `COPY --chmod` and is
+not the default CapRover target for this deployment.
 
 The `/opt/data` volume holds `config.yaml`, `.env`, auth state, sessions,
 memories, skills, plugins, logs, and dashboard uploads. Losing it means losing

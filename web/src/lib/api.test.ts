@@ -46,7 +46,7 @@ describe("dashboard API auth", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/api/providers/oauth/openai-codex/start");
     expect(init.credentials).toBe("include");
     expect(new Headers(init.headers).has("X-Hermes-Session-Token")).toBe(false);
@@ -60,7 +60,7 @@ describe("dashboard API auth", () => {
 
     await expect(api.revealEnvVar("OPENAI_API_KEY")).resolves.toEqual({ ok: true });
 
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(new Headers(init.headers).get("X-Hermes-Session-Token")).toBe("legacy-token");
   });
 });
